@@ -1,0 +1,7 @@
+additional_functions.c:12:19:send_to_display	8
+additional_functions.c:53:19:timer_interrupt_handler	5
+additional_functions.c:117:19:uart_interrupt_handler	3
+additional_functions.c:148:6:get_time	1
+additional_functions.c:166:6:get_time_in_int	1
+additional_functions.c:173:5:should_water	2
+additional_functions.c:188:19:clear_screen	2

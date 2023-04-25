@@ -1,0 +1,7 @@
+../Core/Src/additional_functions.c:12:19:send_to_display	88	static
+../Core/Src/additional_functions.c:53:19:timer_interrupt_handler	112	static
+../Core/Src/additional_functions.c:117:19:uart_interrupt_handler	72	static
+../Core/Src/additional_functions.c:148:6:get_time	24	static
+../Core/Src/additional_functions.c:166:6:get_time_in_int	16	static
+../Core/Src/additional_functions.c:173:5:should_water	56	static
+../Core/Src/additional_functions.c:188:19:clear_screen	32	static

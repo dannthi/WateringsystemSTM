@@ -1,0 +1,13 @@
+stm32l1xx_hal_flash_ex.c:406:19:HAL_FLASHEx_OBProgram	26
+stm32l1xx_hal_flash_ex.c:488:6:HAL_FLASHEx_OBGetConfig	2
+stm32l1xx_hal_flash_ex.c:542:19:HAL_FLASHEx_AdvOBProgram	3
+stm32l1xx_hal_flash_ex.c:599:6:HAL_FLASHEx_AdvOBGetConfig	1
+stm32l1xx_hal_flash_ex.c:751:19:HAL_FLASHEx_DATAEEPROM_Unlock	2
+stm32l1xx_hal_flash_ex.c:770:19:HAL_FLASHEx_DATAEEPROM_Lock	1
+stm32l1xx_hal_flash_ex.c:790:19:HAL_FLASHEx_DATAEEPROM_Erase	5
+stm32l1xx_hal_flash_ex.c:848:21:HAL_FLASHEx_DATAEEPROM_Program	15
+stm32l1xx_hal_flash_ex.c:913:6:HAL_FLASHEx_DATAEEPROM_EnableFixedTimeProgram	1
+stm32l1xx_hal_flash_ex.c:922:6:HAL_FLASHEx_DATAEEPROM_DisableFixedTimeProgram	1
+stm32l1xx_hal_flash_ex.c:1845:6:FLASH_PageErase	1
+stm32l1xx_hal_flash_ex.c:187:19:HAL_FLASHEx_Erase	5
+stm32l1xx_hal_flash_ex.c:283:19:HAL_FLASHEx_Erase_IT	4
