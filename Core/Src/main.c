@@ -72,27 +72,50 @@ static void MX_RTC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-//Interrupt Handler for serial Connection with PC for manually control pump, can't trigger exti-interrupt to wake up currently. Only nvic
+/*
+ * Interrupt Handler for serial Connection with PC for manually control pump, can't trigger exti-interrupt to wake up currently. Only nvic
+ */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
-	uint8_t send_message[ARRAYSIZE] = {0};
+	/*
+	 * Restart System Clock after it was disabled in stop mode
+	 */
 	SystemClock_Config ();
 	HAL_ResumeTick();
-	if(mode==UNKNOWN){
-		mode=KEYBOARD_INTERRUPT;
-	}
-	else{
-		sprintf((char *) send_message, "Try again!\r\n");
-		HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
-	}
-	HAL_UART_Receive_IT(&huart2, receive_message_buf, sizeof(receive_message_buf));
+
+	mode=KEYBOARD_INTERRUPT;
 }
 
 
-//Interrupt Handler for RTC WakeUp
+/*
+ * Interrupt Handler for RTC WakeUp
+ */
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc){
+	/*
+	 * Restart System Clock after it was disabled in stop mode
+	 */
 	SystemClock_Config();
 	HAL_ResumeTick();
+	/*
+	 * RTC Interrupt should not interrupt other interrupt handlers
+	 */
 	if(mode==UNKNOWN) mode=TIMER_INTERRUPT;
+
+//	HAL_RTCEx_SetWakeUpTimer_IT(hrtc, 0x708000, RTC_WAKEUPCLOCK_RTCCLK_DIV16);
+}
+
+/*
+ * Interrupt Handler for external gpio interrupt with button on lcd-display
+ */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	/*
+	 * Restart System Clock after it was disabled in stop mode
+	 */
+	SystemClock_Config();
+	HAL_ResumeTick();
+
+	if(GPIO_Pin == LCD_Botton_Pin){
+		mode=BUTTON_3_INTERRUPT;
+	}
 }
 
 /* USER CODE END 0 */
@@ -106,7 +129,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	uint8_t send_message[ARRAYSIZE] = {0};
 	HAL_StatusTypeDef returnmessage = HAL_ERROR;
-	uint16_t waittime = TIMEAFTERWATERING_IN_MIN * 1000 * 60;
+	uint16_t waittime = TIMEAFTERWATERING_IN_MIN * 60;
 //	uint16_t countwatering = 0;
   /* USER CODE END 1 */
 
@@ -139,26 +162,26 @@ int main(void)
     	HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
     }
 
+
+
+//  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 0x708000, RTC_WAKEUPCLOCK_RTCCLK_DIV16) != HAL_OK) {
+//	sprintf((char *) send_message, "Error WakeUp!\r\n");
+//	HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
+//  }
+
+  /*
+   * Initialize last_time_watered
+   */
+  get_time_in_int(&last_time_watered, &hrtc, sTime, sDate);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  ////LCD16x2 Backlight ON
-//	  send_message[0] = SET_BL;
-//	  send_message[1] = BACKLIGHT_ON;
-//
-//	  returnmessage = HAL_I2C_Master_Transmit(&hi2c1, LCD16x2_ADDR , send_message, 2, HAL_MAX_DELAY);
-//
-//	  if(returnmessage != HAL_OK){
-//		  sprintf((char *)send_message,"Error BL: 0x%x\r\n", returnmessage);
-//		  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
-//	  }
-//
-//	  HAL_Delay(100);
-//
 //	  //LCD_Write test message
+	  HAL_Delay(100);
 	  char* test = "uC is running!";
 	  returnmessage = send_to_display(&hi2c1, test, strlen((char *) test), LCD16x2_ADDR);
 	  if(returnmessage != HAL_OK){
@@ -173,22 +196,27 @@ int main(void)
 //		HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
 //		HAL_Delay(100);
 
-	  if(!should_water(&last_time_watered, (uint16_t) waittime, &hrtc, sTime, sDate)){
-		  sprintf((char *)send_message,"Watering!!!!\r\n");
-		  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
-	  }
-	  else{
-		  sprintf((char *)send_message,"Water time: %d\r\n", last_time_watered);
-		  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
-	  }
 
-	  //Check if Flag was set and which one
-	  // On first run this sequence is run, to ensure connection to display
+//	  if(!should_water(&last_time_watered, (uint16_t) waittime, &hrtc, sTime, sDate)){
+//		  sprintf((char *)send_message,"Watering!!!!\r\n");
+//		  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
+//	  }
+//	  else{
+//		  sprintf((char *)send_message,"Water time: %d\r\n", last_time_watered);
+//		  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
+//	  }
+
+	  /*
+	   * Check if Flag was set and which one
+	   * On first run this sequence is run, to ensure connection to display
+	   */
 	  if(mode==FIRST_BOOT){
 		  sprintf((char *) send_message, "Controller was restarted or firstly booted\r\n");
 		  HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
 
-		  ////LCD16x2 get ID to ensure that display is connected correctly, doesn't work on first run??
+		  /*
+		   * LCD16x2 get ID to ensure that display is connected correctly, doesn't work on first run??
+		   */
 		  send_message[0] = GET_ID;
 
 		  returnmessage = HAL_I2C_Master_Transmit(&hi2c1, LCD16x2_ADDR , send_message, 1, HAL_MAX_DELAY);
@@ -203,31 +231,36 @@ int main(void)
 			  else sprintf((char *)send_message,"Display connected incorrect. LCD-ID: 0x%x\r\n", send_message[0]);
 		  }
 		  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
-
 	  }
 	  // Sequence for interrupt triggered by rtc-timer
 	  else if(mode==TIMER_INTERRUPT){
-		  uint8_t timebuf[ARRAYSIZE] = {0};
-
-		  returnmessage = timer_interrupt_handler(&huart2, &hadc, &hi2c1, waittime, last_time_watered, LCD16x2_ADDR, &hrtc, sTime, sDate);
+		  returnmessage = timer_interrupt_handler(&huart2, &hadc, &hi2c1, waittime, &last_time_watered, LCD16x2_ADDR, &hrtc, sTime, sDate);
 		  if(returnmessage != HAL_OK){
 			  sprintf((char *)send_message,"Error timinthandl: 0x%x\r\n", returnmessage);
 			  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
 		  }
 
 //		  //debugging
+//		  uint8_t* timebuf;
 //		  get_time((char *) timebuf, &hrtc, sTime, sDate);
 //		  sprintf((char *) send_message, "Woke up at: \r\n%s\r\n", timebuf);
 //		  HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
 //		  send_to_display(&hi2c1, (uint16_t *) send_message, strlen((char *) send_message)-2, LCD16x2_ADDR);
 //		  HAL_Delay(1000);
 	  }
-	  // sequence triggered by buttons on lcd-display, i2c slave cannot trigger interrupt at master.
-	  // Solder wire from button to gpio pin of uC to trigger interrupt that way
-	  else if(mode==BUTTON_0_INTERRUPT || mode==BUTTON_1_INTERRUPT || mode==BUTTON_2_INTERRUPT || mode==BUTTON_3_INTERRUPT){
-		  /*Not yet implemented*/
+
+	  /*
+	   * sequence triggered by buttons on lcd-display, i2c slave cannot trigger interrupt at master.
+	   * Solder wire from button to gpio pin of uC to trigger interrupt that way
+	   */
+	  else if(mode==BUTTON_1_INTERRUPT || mode==BUTTON_2_INTERRUPT || mode==BUTTON_3_INTERRUPT || mode==BUTTON_4_INTERRUPT){
+		  returnmessage = gpio_interrupt_handler(&huart2, &hadc, &hi2c1, LCD16x2_ADDR, &hrtc, sTime, sDate);
+		  if(returnmessage != HAL_OK){
+			  sprintf((char *)send_message,"Error button inthandl: 0x%x\r\n", returnmessage);
+			  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
+		  }
 	  }
-	  // sequence for UART interrupt, cannot wake up uC, because uses nvic not exti line
+	  // sequence for UART interrupt, cannot wake up uC, because uses global nvic interrupt not exti line
 	  else if(mode==KEYBOARD_INTERRUPT){
 		  returnmessage = uart_interrupt_handler(receive_message_buf[0], &huart2, &hi2c1, LCD16x2_ADDR);
 
@@ -244,7 +277,6 @@ int main(void)
 
 	  //LCD_Clear Display
 	  clear_screen(&hi2c1, LCD16x2_ADDR);
-	  HAL_Delay(100);
 
 //	  ////LCD16x2 Backlight OFF
 //	  send_message[0] = SET_BL;
@@ -261,13 +293,14 @@ int main(void)
 
 	  mode=UNKNOWN; //Reset interrupt_mode typedef
 
-//	  sprintf((char *) send_message, "Entering Stop-Mode!\r\n");
-//	  HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
+	  sprintf((char *) send_message, "Entering Stop-Mode!\r\n");
+	  HAL_UART_Transmit(&huart2, send_message, strlen((char *) send_message), HAL_MAX_DELAY);
 	  /*Suspend Sys-Clock, because it would wake uC up on first pulse*/
-//	  HAL_SuspendTick();
+	  HAL_SuspendTick();
 	  /*Enter Stop-Mode*/
-//	  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-//	  HAL_ResumeTick();
+	  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+	  HAL_ResumeTick();
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -438,8 +471,8 @@ static void MX_RTC_Init(void)
   */
   hrtc.Instance = RTC;
   hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
-  hrtc.Init.AsynchPrediv = 127;
-  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.AsynchPrediv = 124;
+  hrtc.Init.SynchPrediv = 295;
   hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
   hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
   hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
@@ -465,7 +498,7 @@ static void MX_RTC_Init(void)
   }
   sDate.WeekDay = RTC_WEEKDAY_MONDAY;
   sDate.Month = RTC_MONTH_JANUARY;
-  sDate.Date = 0x0;
+  sDate.Date = 0x1;
   sDate.Year = 0x0;
 
   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
@@ -542,13 +575,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, LD2_Pin|Optokoppler_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PC13 PC0 PC1 PC2
-                           PC3 PC4 PC5 PC6
-                           PC7 PC8 PC9 PC10
-                           PC11 PC12 */
+                           PC3 PC4 PC5 PC7
+                           PC8 PC9 PC10 PC11
+                           PC12 */
   GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2
-                          |GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6
-                          |GPIO_PIN_7|GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10
-                          |GPIO_PIN_11|GPIO_PIN_12;
+                          |GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_7
+                          |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11
+                          |GPIO_PIN_12;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -582,11 +615,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : LCD_Botton_Pin */
+  GPIO_InitStruct.Pin = LCD_Botton_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(LCD_Botton_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : PD2 */
   GPIO_InitStruct.Pin = GPIO_PIN_2;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

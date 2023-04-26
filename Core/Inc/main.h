@@ -40,14 +40,23 @@ extern "C" {
 	typedef enum
 	{
 		TIMER_INTERRUPT,
-		BUTTON_0_INTERRUPT,
 		BUTTON_1_INTERRUPT,
 		BUTTON_2_INTERRUPT,
 		BUTTON_3_INTERRUPT,
+		BUTTON_4_INTERRUPT,
 		KEYBOARD_INTERRUPT,
 		FIRST_BOOT,
 		UNKNOWN
 	} inter_mode;
+
+	typedef enum
+	{
+		NOBUTTON = 0x00U,
+		BUTTON_1 = 0x01U,
+		BUTTON_2 = 0x02U,
+		BUTTON_3 = 0x03U,
+		BUTTON_4 = 0x04U,
+	} button_input;
 
 /* USER CODE END ET */
 
@@ -89,10 +98,25 @@ HAL_StatusTypeDef timer_interrupt_handler(	UART_HandleTypeDef* huart,
 											RTC_TimeTypeDef sTime,
 											RTC_DateTypeDef sDate);
 
+button_input get_button_input(				I2C_HandleTypeDef *hi2c,
+											uint16_t LCD16x2_ADDR);
+
+HAL_StatusTypeDef gpio_interrupt_handler(	UART_HandleTypeDef* huart,
+											ADC_HandleTypeDef* hadc,
+											I2C_HandleTypeDef *hi2c,
+											uint16_t LCD16x2_ADDR,
+											RTC_HandleTypeDef *hrtc,
+											RTC_TimeTypeDef sTime,
+											RTC_DateTypeDef sDate);
+
 void get_time(								char* string,
 											RTC_HandleTypeDef *hrtc,
 											RTC_TimeTypeDef sTime,
 											RTC_DateTypeDef sDate);
+
+void set_bl_lcd(							I2C_HandleTypeDef *hi2c,
+											uint16_t LCD16x2_ADDR,
+											uint8_t value);
 
 int should_water(							uint16_t* previous_time,
 											uint16_t waittime,
@@ -111,6 +135,9 @@ void get_time_in_int(						uint16_t* time,
 #define LD2_GPIO_Port GPIOA
 #define Optokoppler_Pin GPIO_PIN_6
 #define Optokoppler_GPIO_Port GPIOA
+#define LCD_Botton_Pin GPIO_PIN_6
+#define LCD_Botton_GPIO_Port GPIOC
+#define LCD_Botton_EXTI_IRQn EXTI9_5_IRQn
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
@@ -119,11 +146,11 @@ void get_time_in_int(						uint16_t* time,
 /* USER CODE BEGIN Private defines */
 
 #define MIN_MOISTURE_VOLTAGE 		2.000000 // has to be calibrated
-#define TIMEAFTERWATERING_IN_MIN 	0.5
-#define TIMEPUMPISRUNNING_IN_S 		20
+#define TIMEAFTERWATERING_IN_MIN 	10
+#define TIMEPUMPISRUNNING_IN_S 		5
+#define TIMEBUTTONTIMEOUT	 		10000 	// 10s before timeout in buttoninput
 //#define SLEEPTIME 0x708000 //60min
-//#define SLEEPTIME 0x1e000 //1min
-#define SLEEPTIME 0x1800 // 18s apparently
+#define SLEEPTIME 0x1e000 //1min
 #define ARRAYSIZE 	45
 
 //LCD16x2 Defines
