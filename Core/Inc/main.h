@@ -146,7 +146,7 @@ void get_time_in_int(						uint16_t* time,
 /* USER CODE BEGIN Private defines */
 
 #define MIN_MOISTURE_VOLTAGE 		2.000000 // has to be calibrated
-#define TIMEAFTERWATERING_IN_MIN 	10
+#define TIMEAFTERWATERING_IN_MIN 	1
 #define TIMEPUMPISRUNNING_IN_S 		5
 #define TIMEBUTTONTIMEOUT	 		10000 	// 10s before timeout in buttoninput
 //#define SLEEPTIME 0x708000 //60min
