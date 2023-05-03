@@ -35,7 +35,6 @@
 const uint16_t LCD16x2_ADDR = (ADDRESS << 1); // Use 7-bit address shifted to left, to add R/W Bit
 inter_mode mode = FIRST_BOOT;
 uint16_t last_time_watered = 0;
-uint8_t receive_message_buf[1] = {2};
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -129,8 +128,9 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	uint8_t send_message[ARRAYSIZE] = {0};
 	HAL_StatusTypeDef returnmessage = HAL_ERROR;
-	uint16_t waittime = TIMEAFTERWATERING_IN_MIN * 60;
-//	uint16_t countwatering = 0;
+	const uint16_t waittime = TIMEAFTERWATERING_IN_MIN * 60;
+	uint8_t receive_message_buf[1] = {2};
+	uint16_t countwatering = 0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -234,7 +234,7 @@ int main(void)
 	  }
 	  // Sequence for interrupt triggered by rtc-timer
 	  else if(mode==TIMER_INTERRUPT){
-		  returnmessage = timer_interrupt_handler(&huart2, &hadc, &hi2c1, waittime, &last_time_watered, LCD16x2_ADDR, &hrtc, sTime, sDate);
+		  returnmessage = timer_interrupt_routine(&huart2, &hadc, &hi2c1, waittime, &last_time_watered, &countwatering, LCD16x2_ADDR, &hrtc, sTime, sDate);
 		  if(returnmessage != HAL_OK){
 			  sprintf((char *)send_message,"Error timinthandl: 0x%x\r\n", returnmessage);
 			  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
@@ -254,7 +254,7 @@ int main(void)
 	   * Solder wire from button to gpio pin of uC to trigger interrupt that way
 	   */
 	  else if(mode==BUTTON_1_INTERRUPT || mode==BUTTON_2_INTERRUPT || mode==BUTTON_3_INTERRUPT || mode==BUTTON_4_INTERRUPT){
-		  returnmessage = gpio_interrupt_handler(&huart2, &hadc, &hi2c1, LCD16x2_ADDR, &hrtc, sTime, sDate);
+		  returnmessage = gpio_interrupt_routine(&huart2, &hadc, &hi2c1, LCD16x2_ADDR, &countwatering, &hrtc, sTime, sDate);
 		  if(returnmessage != HAL_OK){
 			  sprintf((char *)send_message,"Error button inthandl: 0x%x\r\n", returnmessage);
 			  HAL_UART_Transmit(&huart2, send_message, strlen((char*) send_message), HAL_MAX_DELAY);
@@ -262,7 +262,7 @@ int main(void)
 	  }
 	  // sequence for UART interrupt, cannot wake up uC, because uses global nvic interrupt not exti line
 	  else if(mode==KEYBOARD_INTERRUPT){
-		  returnmessage = uart_interrupt_handler(receive_message_buf[0], &huart2, &hi2c1, LCD16x2_ADDR);
+		  returnmessage = uart_interrupt_routine(receive_message_buf[0], &countwatering, &huart2, &hi2c1, LCD16x2_ADDR);
 
 		  if(returnmessage != HAL_OK){
 			  sprintf((char *)send_message,"Error uartinthandl: 0x%x\r\n", returnmessage);
@@ -299,6 +299,7 @@ int main(void)
 	  HAL_SuspendTick();
 	  /*Enter Stop-Mode*/
 	  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+//	  HAL_PWR_EnterSLEEPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
 	  HAL_ResumeTick();
 
     /* USER CODE END WHILE */

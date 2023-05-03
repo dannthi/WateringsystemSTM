@@ -54,11 +54,11 @@ HAL_StatusTypeDef send_to_display(I2C_HandleTypeDef *hi2c, char* input_string, u
 }
 
 /**
-  * @brief Interrupt handler for RTC
+  * @brief Interrupt routine for RTC
   * @retval HAL status
   */
-HAL_StatusTypeDef timer_interrupt_handler(	UART_HandleTypeDef* huart, ADC_HandleTypeDef* hadc, I2C_HandleTypeDef *hi2c,
-											uint16_t waittime, uint16_t* last_time_watered,
+HAL_StatusTypeDef timer_interrupt_routine(	UART_HandleTypeDef* huart, ADC_HandleTypeDef* hadc, I2C_HandleTypeDef *hi2c,
+											uint16_t waittime, uint16_t* last_time_watered, uint16_t* countwatering,
 											uint16_t LCD16x2_ADDR, RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef sTime, RTC_DateTypeDef sDate){
 	uint8_t send_message[ARRAYSIZE] = {0};
 	uint16_t adc_value = 0;
@@ -118,17 +118,19 @@ HAL_StatusTypeDef timer_interrupt_handler(	UART_HandleTypeDef* huart, ADC_Handle
 		  sprintf((char *)send_message, "Pump: OFF\r\n\n");
 		  HAL_UART_Transmit(huart, send_message, strlen((char*)send_message), HAL_MAX_DELAY);
 		  send_to_display(hi2c, (char*) send_message, strlen((char *) send_message)-3, LCD16x2_ADDR);
+
+		  *countwatering = *countwatering + 1;
 	  }
 
 	  return HAL_OK;
 }
 
 /**
-  * @brief Interrupt Handler for UART
+  * @brief Interrupt routine for UART
   * @note UART cannot wake up uC from stop mode
   * @retval HAL status
   */
-HAL_StatusTypeDef uart_interrupt_handler(char uart_message, UART_HandleTypeDef* huart, I2C_HandleTypeDef* hi2c, uint16_t LCD16x2_ADDR){
+HAL_StatusTypeDef uart_interrupt_routine(char uart_message, uint16_t* countwatering, UART_HandleTypeDef* huart, I2C_HandleTypeDef* hi2c, uint16_t LCD16x2_ADDR){
 	uint8_t send_message[ARRAYSIZE] = {0};
 
 	if(uart_message == 'y'){
@@ -137,6 +139,8 @@ HAL_StatusTypeDef uart_interrupt_handler(char uart_message, UART_HandleTypeDef* 
 		sprintf((char *) send_message, "Pump: on\r\n");
 		HAL_UART_Transmit(huart, send_message, strlen((char*)send_message), HAL_MAX_DELAY);
 		send_to_display(hi2c, (char*) send_message, strlen((char *) send_message)-2, LCD16x2_ADDR);
+
+		*countwatering = *countwatering + 1;
 	}
 	else if (uart_message == 'n'){
 		HAL_GPIO_WritePin(Optokoppler_GPIO_Port, Optokoppler_Pin, GPIO_PIN_RESET);
@@ -160,18 +164,19 @@ HAL_StatusTypeDef uart_interrupt_handler(char uart_message, UART_HandleTypeDef* 
 }
 
 /**
-  * @brief Interrupt handler for external GPIO
+  * @brief Interrupt routine for external GPIO
   * @note Buttons on Display:
   * 		Button 1: Show time running
   * 		Button 2: Show Voltage from ADC
   * 		Button 3: Run pump for 10s
-  * 		Butten 4: Trigger interrupt. Has to be pressed before using other buttons.
+  * 		Butten 4: Trigger interrupt. Has to be pressed before using other buttons. Show times watered.
   * 	  One Button has to be pressed after feedback
   * 	  Timeout after 10s.
+  * @note Other features can freely be added. Maybe a FSM could be useful
   * @retval HAL status
   */
-HAL_StatusTypeDef gpio_interrupt_handler(	UART_HandleTypeDef* huart, ADC_HandleTypeDef* hadc, I2C_HandleTypeDef *hi2c,
-											uint16_t LCD16x2_ADDR, RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef sTime, RTC_DateTypeDef sDate){
+HAL_StatusTypeDef gpio_interrupt_routine(	UART_HandleTypeDef* huart, ADC_HandleTypeDef* hadc, I2C_HandleTypeDef *hi2c,
+											uint16_t LCD16x2_ADDR, uint16_t* countwatering, RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef sTime, RTC_DateTypeDef sDate){
 	uint32_t reftime = HAL_GetTick();
 	button_input button = NOBUTTON;
 	uint8_t send_message[ARRAYSIZE] = {0};
@@ -221,6 +226,13 @@ HAL_StatusTypeDef gpio_interrupt_handler(	UART_HandleTypeDef* huart, ADC_HandleT
 				sprintf((char *)send_message, "Pump: OFF\r\n");
 				HAL_UART_Transmit(huart, send_message, strlen((char*)send_message), HAL_MAX_DELAY);
 				send_to_display(hi2c, (char*) send_message, strlen((char *) send_message), LCD16x2_ADDR);
+
+				*countwatering = *countwatering + 1;
+			}
+			else if(button == BUTTON_4){
+				sprintf((char *)send_message, "Watered: %d\r\n", *countwatering);
+				HAL_UART_Transmit(huart, send_message, strlen((char*)send_message), HAL_MAX_DELAY);
+				send_to_display(hi2c, (char*) send_message, strlen((char *) send_message)-2, LCD16x2_ADDR);
 			}
 
 			/*
@@ -253,10 +265,10 @@ HAL_StatusTypeDef gpio_interrupt_handler(	UART_HandleTypeDef* huart, ADC_HandleT
 	HAL_UART_Transmit(huart, send_message, strlen((char*)send_message), HAL_MAX_DELAY);
 	send_to_display(hi2c, (char*) send_message, strlen((char *) send_message)-2, LCD16x2_ADDR);
 
-	while(1){
-		if(get_button_input(hi2c, LCD16x2_ADDR) != NOBUTTON) break;
-		else HAL_Delay(10);
-	}
+//	while(1){
+//		if(get_button_input(hi2c, LCD16x2_ADDR) != NOBUTTON) break;
+//		else HAL_Delay(10);
+//	}
 
 	/*
 	 * Backlight off, clears screen and return
@@ -312,7 +324,7 @@ void set_bl_lcd(I2C_HandleTypeDef *hi2c, uint16_t LCD16x2_ADDR, uint8_t value){
   */
 void get_time(char* string, RTC_HandleTypeDef *hrtc, RTC_TimeTypeDef sTime, RTC_DateTypeDef sDate){
 	/*Calculations from: https://stackoverflow.com/questions/10874048/from-milliseconds-to-hour-minutes-seconds-and-milliseconds
-	HAL_GetTick() doesn't work in stop/sleep mode due to the deactivated sysclock
+	* HAL_GetTick() doesn't work in stop/sleep mode due to the deactivated sysclock
 	*/
 //	uint32_t milliseconds = HAL_GetTick();
 //	uint8_t seconds = (uint8_t) (milliseconds / 1000) % 60 ;
@@ -353,7 +365,7 @@ int should_water(uint16_t* previous_time, uint16_t waittime, RTC_HandleTypeDef *
 		get_time_in_int(previous_time, hrtc, sTime, sDate); // write current time in variable previous_time of watering
 		return 0;
 	}
-//	else if(sTime.Hours>20) return 0; //dont't water after 20:00. Real time has to be initialized
+//	else if(sTime.Hours>20) return 0; //dont't water after 20:00. Real time has to be initialized.
 	else return 1;
 }
 

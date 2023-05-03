@@ -83,16 +83,18 @@ HAL_StatusTypeDef send_to_display(			I2C_HandleTypeDef *hi2c,
 HAL_StatusTypeDef clear_screen(				I2C_HandleTypeDef *hi2c,
 											uint16_t LCD16x2_ADDR);
 
-HAL_StatusTypeDef uart_interrupt_handler(	char uart_message,
+HAL_StatusTypeDef uart_interrupt_routine(	char uart_message,
+											uint16_t* countwatering,
 											UART_HandleTypeDef* huart,
 											I2C_HandleTypeDef* hi2c,
 											uint16_t LCD16x2_ADDR);
 
-HAL_StatusTypeDef timer_interrupt_handler(	UART_HandleTypeDef* huart,
+HAL_StatusTypeDef timer_interrupt_routine(	UART_HandleTypeDef* huart,
 											ADC_HandleTypeDef* hadc,
 											I2C_HandleTypeDef *hi2c,
 											uint16_t waittime,
 											uint16_t* last_time_watered,
+											uint16_t* countwatering,
 											uint16_t LCD16x2_ADDR,
 											RTC_HandleTypeDef *hrtc,
 											RTC_TimeTypeDef sTime,
@@ -101,10 +103,11 @@ HAL_StatusTypeDef timer_interrupt_handler(	UART_HandleTypeDef* huart,
 button_input get_button_input(				I2C_HandleTypeDef *hi2c,
 											uint16_t LCD16x2_ADDR);
 
-HAL_StatusTypeDef gpio_interrupt_handler(	UART_HandleTypeDef* huart,
+HAL_StatusTypeDef gpio_interrupt_routine(	UART_HandleTypeDef* huart,
 											ADC_HandleTypeDef* hadc,
 											I2C_HandleTypeDef *hi2c,
 											uint16_t LCD16x2_ADDR,
+											uint16_t* countwatering,
 											RTC_HandleTypeDef *hrtc,
 											RTC_TimeTypeDef sTime,
 											RTC_DateTypeDef sDate);
@@ -145,10 +148,10 @@ void get_time_in_int(						uint16_t* time,
 
 /* USER CODE BEGIN Private defines */
 
-#define MIN_MOISTURE_VOLTAGE 		2.000000 // has to be calibrated
+#define MIN_MOISTURE_VOLTAGE 		2.000000 // has to be calibrated, dependent on plants need of water
 #define TIMEAFTERWATERING_IN_MIN 	1
 #define TIMEPUMPISRUNNING_IN_S 		5
-#define TIMEBUTTONTIMEOUT	 		10000 	// 10s before timeout in buttoninput
+#define TIMEBUTTONTIMEOUT	 		10000 	// 10s before timeout on button input
 //#define SLEEPTIME 0x708000 //60min
 #define SLEEPTIME 0x1e000 //1min
 #define ARRAYSIZE 	45
